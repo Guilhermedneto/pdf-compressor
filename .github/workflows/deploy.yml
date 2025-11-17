@@ -29,53 +29,11 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Create or Update App Service Plan (Standard S1)
-      id: create-plan
-      run: |
-        # Try multiple regions until one works
-        REGIONS=("eastus" "eastus2" "westus" "westus2" "brazilsouth" "westeurope")
-        PLAN_CREATED=false
-
-        for region in "${REGIONS[@]}"; do
-          echo "Trying region: $region"
-
-          if az appservice plan create \
-            --name pdf-compressor-plan-$region \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --location $region \
-            --is-linux \
-            --sku S1 2>/dev/null; then
-
-            echo "Success in region: $region"
-            echo "plan-name=pdf-compressor-plan-$region" >> $GITHUB_OUTPUT
-            echo "location=$region" >> $GITHUB_OUTPUT
-            PLAN_CREATED=true
-            break
-          else
-            echo "Failed in $region, trying next..."
-          fi
-        done
-
-        if [ "$PLAN_CREATED" = false ]; then
-          echo "Error: No region available with quota. Please request quota increase."
-          exit 1
-        fi
-      continue-on-error: true
-
-    - name: Check if plan creation was successful
-      run: |
-        if [ -z "${{ steps.create-plan.outputs.plan-name }}" ]; then
-          echo "::warning::Could not create App Service Plan due to quota limitations."
-          echo "::warning::Please request quota increase for Standard VMs in Azure Portal."
-          echo "::warning::Visit: https://portal.azure.com/#blade/Microsoft_Azure_Support/HelpAndSupportBlade/newsupportrequest"
-          exit 1
-        fi
-
-    - name: Create or Update Web App for Backend
+    - name: Deploy Backend to Azure Web App
       id: deploy
       uses: azure/webapps-deploy@v2
       with:
-        app-name: pdf-compressor-backend
+        app-name: pdf-compressor-backend-guilh
         package: ./backend
 
     - name: Set Backend Environment Variables
@@ -83,7 +41,7 @@ jobs:
       run: |
         az webapp config appsettings set \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --name pdf-compressor-backend \
+          --name pdf-compressor-backend-guilh \
           --settings \
             SCM_DO_BUILD_DURING_DEPLOYMENT=true \
             ENABLE_ORYX_BUILD=true \
